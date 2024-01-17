@@ -1,9 +1,9 @@
 const products = require('../models/products');
-// const parsePrice = require('../utils/parsingPrice')
 
 const listProducts = async (req, res) => {
   try {
     const getProduct = await products.findAll({
+      //  data yang dibutuhkan
       attributes: [
         'id',
         'productName',
@@ -13,7 +13,7 @@ const listProducts = async (req, res) => {
       ]
     })
     
-    //  test
+    
     const parseJsonProducts = JSON.stringify(getProduct)
     
     res.status(200).json({

@@ -85,10 +85,35 @@ const Login = async (req, res) => {
   }
 }
 
+const Logout = async (req, res) => {
+   const getTokenCookie = req.cookies.refreshToken
+  
+  // jika tidak ada refreshToken di cookie kita blokir
+  if(!getTokenCookie) return res.sendStatus(401)
+    
+  const users = await TableUser.findAll({
+    where: {
+      // membandingkan refreshToken yang ada di Db dengan refreshToken cookie       
+      refreshToken: getTokenCookie
+    }
+  })
+    
+  //  jika user tidak cocok dengan token
+  if(!users) return res.sendStatus(401)
+  
+  const userId = users[0].id
+  await TableUser.update({ refreshToken: null },
+    { where: { id : userId } 
+  })  
+  
+  res.clearCookie('refreshToken')
+  return res.sendStatus(200)
+}
 
 
 // REGISTER
 module.exports = {
   Login,
-  Register
+  Register,
+  Logout
 }
