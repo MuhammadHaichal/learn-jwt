@@ -19,11 +19,7 @@ const verifikasiToken = (req, res, next) => {
     })
     next()
   } catch (error) {
-    if (error) {
-      res.status(400).json({
-        msg: 'try again login',
-      })
-    }
+    if (error) return res.sendStatus(401)
   }
 }
 

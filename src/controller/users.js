@@ -1,32 +1,65 @@
 const TableUser = require('../models/users')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken') 
+const usersValidate = require('../validation/usersValidation')
+
 
 
 // REGISTER
 const Register = async (req, res)  => {
-  const { nama, email, umur, address, noTelpone, password } = req.body
-  
-  try {
-    const salt = bcrypt.genSaltSync(10)
-    const HashPassword = bcrypt.hashSync(password, salt);
-    
-    const createUsers = await TableUser.create({
-      nama: nama,
-      email: email,
-      umur: umur, 
-      address: address,
-      noTelpone: noTelpone,
-      password: HashPassword
-    })
-    
-    res.status(201).json({
-      statusCode: 201,
-      msg: 'berhasil created users'
-    })  
-  } catch (error) {
-    res.sendStatus(400)
-  }
+    const { nama, email, umur, address, noTelpone, password } = req.body
+      
+    try {
+        
+        //  validation users inputed
+        const { error, value } = usersValidate.validate({
+            'nama': nama, 
+            'email': email,
+            'address': address, 
+            'password': password
+        })
+            
+        
+        // if users send data not valid
+        if (error) {
+            return error.details.map((data) => {
+                res.json({
+                    code: 400,
+                    errors: data.message,
+                    message: ''
+                })
+            })
+        } 
+        
+        
+        if(!error) {
+            const salt = bcrypt.genSaltSync(10)
+            const HashPassword = bcrypt.hashSync(value.password, salt);
+            const createUsers = await TableUser.create({
+              nama: value.nama,
+              email: value.email,
+              umur: umur, 
+              address: value.address,
+              noTelpone: noTelpone,
+              password: HashPassword
+            })
+            return res.sendStatus(201)
+        }
+        
+    } catch (error) {
+        // if user already usage 
+        if (error) {
+            error.errors.map((data) => {
+                return res.json({
+                    code: 400,
+                    errors: data.message,
+                    message: ''
+                })
+            })
+        } else {
+            return
+        }
+    }
 }
 
 // LOGIN  
@@ -35,7 +68,7 @@ const Login = async (req, res) => {
   try {
     const { nama, email, password } = req.body;
     
-    // mencari email
+    // search email 
     const users = await TableUser.findAll({
       where: { email: email }
     })
@@ -43,6 +76,7 @@ const Login = async (req, res) => {
     // cek apakah password cocok yang ada di database
     const matchPassword = await bcrypt.compare(password, users[0].password)
     
+    // if password wrong
     if(!matchPassword){
       res.status(403).json({
         statusCode: 403,
@@ -71,34 +105,33 @@ const Login = async (req, res) => {
       }
     })
     
-    // mengirim cookie ke client 
+    
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000
     })
     
-    
     res.json({ accessToken })  
+    
   } catch (error) {
-    // jika email tidak ditemukan lempar ke not found
-    res.status(404).json({msg: 'Email tidak ditemukan'})
+    // if email not found
+    res.status(404).json({msg: 'Sory Email Not Found'})
   }
 }
 
 const Logout = async (req, res) => {
-   const getTokenCookie = req.cookies.refreshToken
+   const tokenCookie = req.cookies.refreshToken
   
-  // jika tidak ada refreshToken di cookie kita blokir
-  if(!getTokenCookie) return res.sendStatus(401)
+  // if cookie not found
+  if(!tokenCookie) return res.sendStatus(401)
     
   const users = await TableUser.findAll({
     where: {
-      // membandingkan refreshToken yang ada di Db dengan refreshToken cookie       
-      refreshToken: getTokenCookie
+     refreshToken: tokenCookie
     }
   })
     
-  //  jika user tidak cocok dengan token
+  //  if user not match refreshToken
   if(!users) return res.sendStatus(401)
   
   const userId = users[0].id
@@ -106,6 +139,7 @@ const Logout = async (req, res) => {
     { where: { id : userId } 
   })  
   
+  // remove cookie 
   res.clearCookie('refreshToken')
   return res.sendStatus(200)
 }
